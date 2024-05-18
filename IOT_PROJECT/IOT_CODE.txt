@@ -1,0 +1,114 @@
+#include <DHT.h>
+#include <DHT_U.h>
+#include <Wire.h>
+#define DHTPIN 11 // DHT11 sensor data pin
+#define DHTTYPE DHT11 // DHT sensor type
+#define MOTOR_PIN_ENA 5 // Enable pin for motor driver (PWM pin)
+#define MOTOR_PIN_IN1 9 // Input pin 1 for motor driver
+#define MOTOR_PIN_IN2 10 // Input pin 2 for motor driver
+#define TEMPERATURE_THRESHOLD 29 
+#define TEMPERATURE_THRESHOLD1 32 // Temperature threshold to adjust 
+motor speed
+DHT dht(DHTPIN, DHTTYPE);
+int irPin1=7;
+int irPin2=8;
+int count=0;
+int ldr,bri;
+boolean state1 = true;
+boolean state2 = true;
+boolean insideState = false;
+boolean outsideIr=false;
+boolean isPeopleExiting=false;
+int i=1;
+void setup() {
+Serial.begin(9600);
+pinMode(irPin1, INPUT);
+pinMode(irPin2, INPUT);
+pinMode(A0, INPUT);
+pinMode(6, OUTPUT);
+Serial.begin(9600);
+ dht.begin();
+ Wire.begin();
+}
+void loop() { 
+ if (!digitalRead(irPin1) && i==1 && state1){
+ outsideIr=true;
+ delay(100);
+ i++;
+ state1 = false;
+ }
+ else if (!digitalRead(irPin2) && i==2 && state2){
+ Serial.println("Entering inside the room");
+ outsideIr=true;
+ delay(100);
+ i = 1 ;
+ count++;
+ Serial.print("No. of people inside room: ");
+ Serial.println(count);
+ state2 = false;
+ }
+ else if (!digitalRead(irPin2) && i==1 && state2 ){
+ outsideIr=true;
+ delay(100);
+ i = 2 ;
+ state2 = false;
+ }
+ else if (!digitalRead(irPin1) && i==2 && state1 ){
+ Serial.println("Exiting from room");
+ outsideIr=true;
+ delay(100);
+ count--;
+ if(count<0)
+ count=0;
+ Serial.print("No. of people inside room: ");
+ Serial.println(count);
+ i = 1;
+ state1 = false;
+ } 
+ if (digitalRead(irPin1)){
+ state1 = true;
+ }
+ if (digitalRead(irPin2)){
+ state2 = true;
+ }
+ ldr = analogRead(A0);
+ bri = map(ldr, 0, 1023, 0, 255);
+ if(count>0)
+ analogWrite(6, bri);
+ else
+ analogWrite(6,0);
+ float temperature = dht.readTemperature(); // Read temperature in Celsius
+ if (isnan(temperature)) {
+ Serial.println("Failed to read temperature from DHT sensor!");
+ return;
+ }
+if(count>0){ // Adjust motor speed based on temperature
+ if (temperature > TEMPERATURE_THRESHOLD1) {
+ 
+ analogWrite(MOTOR_PIN_ENA, 255); // Set the motor speed to maximum 
+(255)
+ digitalWrite(MOTOR_PIN_IN1, HIGH); // Set motor direction (forward)
+ digitalWrite(MOTOR_PIN_IN2, LOW);
+ //Serial.println("HIGH");
+ 
+ }
+ else if (temperature > TEMPERATURE_THRESHOLD) {
+ analogWrite(MOTOR_PIN_ENA, 100); // Set the motor speed to a value (150)
+ digitalWrite(MOTOR_PIN_IN1, HIGH); // Set motor direction (forward)
+ digitalWrite(MOTOR_PIN_IN2, LOW);
+ //Serial.println("mid");
+ }
+ else {
+ // Decrease motor speed
+ analogWrite(MOTOR_PIN_ENA, 45); // Set the motor speed to a lower value 
+ digitalWrite(MOTOR_PIN_IN1, HIGH); // Set motor direction (forward)
+ digitalWrite(MOTOR_PIN_IN2, LOW);
+ //Serial.println("low");
+ }
+ }
+ else
+ {
+ analogWrite(MOTOR_PIN_ENA, 0);
+ }
+ 
+}
